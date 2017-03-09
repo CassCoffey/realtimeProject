@@ -1,0 +1,33 @@
+{
+  "name": "syncing-part1",
+  "version": "1.0.0",
+  "description": "",
+  "engines": {
+    "node": "7.1.0",
+    "npm": "3.10.x"
+  },
+  "main": "./src/server.js",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "pretest": "eslint ./src --fix",
+    "test": "echo \"No Tests\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SPCoffey/canvas-syncing-assignment-part1.git"
+  },
+  "author": "Sean Coffey",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SPCoffey/canvas-syncing-assignment-part1/issues"
+  },
+  "homepage": "https://github.com/SPCoffey/canvas-syncing-assignment-part1#readme",
+  "dependencies": {
+    "socket.io": "^1.7.3"
+  },
+  "devDependencies": {
+    "eslint": "^3.16.0",
+    "eslint-config-airbnb": "^14.1.0",
+    "eslint-plugin-import": "^2.2.0"
+  }
+}
