@@ -5,162 +5,171 @@
 	<script src="/socket.io/socket.io.js"></script>
     <script type="text/babel" >
         "use strict";
-		
-		var loops = 0, ticks = 1000 / 30, maxFrameSkip = 10, nextGameTick = (new Date).getTime();
-		
 		var canvas;
 		var ctx;
-		
-		const user = `user${(Math.floor((Math.random()*1000))+1)}`;
+		var user;
 		
 		let socket;
-		let draws = {};
-		let coins = [];
 		
-		var myKeys = {};
-		myKeys.KEYBOARD = Object.freeze({
-			"KEY_SPACE": 32,
-			"KEY_W": 87,
-			"KEY_A": 65,
-			"KEY_S": 83,
-			"KEY_D": 68,
-		});
-		myKeys.keydown = [];
-		
-		var color = ["black", "green", "red", "blue", "pink", "grey", "brown"];
-		var currColor = 0;
+		var board = [
+			[null, null, null],
+			[null, null, null],
+			[null, null, null]
+		];
     
 		const connectSocket = (e) => {
 			socket = io.connect();
 			
+			user = document.querySelector("#username").value;
+			if (!user) {
+					user = 'unknown';
+			}
+			
 			socket.on('connect', () => {
 				console.log('connecting');
-				socket.emit('join', null);
+				socket.emit('join', {name: user});
 			});
 			
-			socket.on('draw', (data) => {
-				handleMessage(data);
+			socket.on('connected', () => {				
+				document.querySelector("#login").style.display = "none";
+				document.querySelector("#game").style.display = "block";
+				
+				draw();
 			});
 			
-			socket.on('updateCoins', (data) => {
-				updateCoins(data);
+			socket.on('updateRoomInfo', (data) => {
+				document.querySelector("#roomInfo").innerHTML = `Room: ${data.name}, Player One: ${data.playerOne}, Player Two: ${data.playerTwo}`;
+			});
+			
+			socket.on('updateBoard', (data) => {
+				board = data.board;
+				draw();
 			});
 		};
 		
 		const draw = () => {
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 			
-			for (let i = 0; i < coins.length; i++)
-			{
-				const drawCall = coins[i];
-				if (drawCall.visible)
-				{
-					ctx.fillStyle = "yellow";
-					ctx.beginPath();
-					ctx.arc(drawCall.x, drawCall.y, drawCall.radius, 0, 2 * Math.PI, false);
-					ctx.fill();
+			drawBoard();
+			
+			for (var x = 0; x < 3; x++) {
+				for (var y = 0; y < 3; y++) {
+					if (board[x][y] === 'x') {
+						drawX(x,y);
+					}
+					else if (board[x][y] === 'o') {
+						drawO(x,y);
+					}
 				}
 			}
-			
-			let keys = Object.keys(draws);
-			
-			for (let i = 0; i < keys.length; i++)
-			{
-				const drawCall = draws[keys[i]];
-				ctx.fillStyle = drawCall.color;
-				ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
-			}
 		}
 		
-		const setup = () => {
-			const time = new Date().getTime();
-			let x = Math.floor(Math.random()*(1280-10) + 10);
-			let y = Math.floor(Math.random()*(720-10) + 10);
-			let cInd = Math.floor(Math.random()*7);
-			draws[user] = {lastUpdate: time, x: x, y: y, width: 50, height: 50, color: color[cInd]};
+		const drawBoard = () => {
+			var width = canvas.width;
+			var height = canvas.height;
+			var sectionWidth = width / 3;
+			var sectionHeight = width / 3;
 			
-			// event listeners
-			window.addEventListener("keydown",function(e){
-				myKeys.keydown[e.keyCode] = true;
+			for (var i = 1; i < 3; i++)
+			{
+				let curX = i * sectionWidth;
+				let curY = i * sectionHeight;
+				ctx.beginPath();
+				ctx.moveTo(curX,0);
+				ctx.lineTo(curX,height);
+				ctx.stroke();
 				
-				// pausing and resuming
-				var char = String.fromCharCode(e.keyCode);
-				if (char == "f" || char == "F"){
-					cycleColor();
-				}
-			});
-				
-			window.addEventListener("keyup",function(e){
-				myKeys.keydown[e.keyCode] = false;
-			});
+				ctx.beginPath();
+				ctx.moveTo(0, curY);
+				ctx.lineTo(width, curY);
+				ctx.stroke();
+			}
 		}
 		
-		const cycleColor = () => {
-			currColor++;
-			if (currColor >= color.length)
-			{
-				currColor = 0;
-			}
+		const drawX = (x, y) => {
+			var width = canvas.width;
+			var height = canvas.height;
+			var sectionWidth = width / 3;
+			var sectionHeight = width / 3;
+			var boardX = x * sectionWidth;
+			var boardY = y * sectionHeight;
 			
-			draws[user].color = color[currColor];
+			ctx.beginPath();
+			ctx.moveTo(boardX,boardY);
+			ctx.lineTo(boardX + sectionWidth,boardY + sectionHeight);
+			ctx.stroke();
+			
+			ctx.beginPath();
+			ctx.moveTo(boardX,boardY + sectionHeight);
+			ctx.lineTo(boardX + sectionWidth,boardY);
+			ctx.stroke();
 		}
 		
-		const handleMessage = (data) => {
-			if (!draws[data.name])
-			{
-				draws[data.name] = data.coords;
-			}
-			else if (data.coords.lastUpdate > draws[data.name].lastUpdate)
-			{
-				draws[data.name] = data.coords;
-			}
+		const drawO = (x, y) => {
+			var width = canvas.width;
+			var height = canvas.height;
+			var sectionWidth = width / 3;
+			var sectionHeight = width / 3;
+			var boardX = x * sectionWidth;
+			var boardY = y * sectionHeight;
+			
+			ctx.beginPath();
+			ctx.arc(boardX + (sectionWidth/2),boardY + (sectionHeight/2),sectionWidth/2,0,2*Math.PI);
+			ctx.stroke();
 		}
 		
-		const updateCoins = (data) => {
-			coins = data.coins;
+		const getMousePos = (e) => {
+			var rect = canvas.getBoundingClientRect();
+			return {
+				x: e.clientX - rect.left,
+				y: e.clientY - rect.top
+			};
 		}
 		
-		const update = () => {
-			const time = new Date().getTime();
-				
-			draws[user].lastUpdate = time;
-			checkKeys();
-			socket.emit('draw', {name: user, coords: draws[user]});
-		}
-		
-		const checkKeys = () => {
-			if (myKeys.keydown[myKeys.KEYBOARD.KEY_W])
-			{
-				draws[user].y -= 3;
-			}
-			if (myKeys.keydown[myKeys.KEYBOARD.KEY_A])
-			{
-				draws[user].x -= 3;
-			}
-			if (myKeys.keydown[myKeys.KEYBOARD.KEY_S])
-			{
-				draws[user].y += 3;
-			}
-			if (myKeys.keydown[myKeys.KEYBOARD.KEY_D])
-			{
-				draws[user].x += 3;
-			}
+		const doMouseDown = (e) => {
+			var mousePos = getMousePos(e);
+			var width = canvas.width;
+			var height = canvas.height;
+			var sectionWidth = width / 3;
+			var sectionHeight = width / 3;
+			
+			var x = Math.floor(mousePos.x / sectionWidth);
+			var y = Math.floor(mousePos.y / sectionHeight);
+			
+			socket.emit('makeMove', {x: x, y: y});
 		}
 		
 		const init = () => {
 			canvas = document.getElementById("mainCanvas");
 			ctx = canvas.getContext("2d");
-			connectSocket();
-			setup();
-			setInterval(update, 1000 / 60);
-			setInterval(draw, 1000 / 30);
+			const connect = document.querySelector("#connect");
+			connect.addEventListener('click', connectSocket);
+			canvas.addEventListener('click', function (e) {
+				doMouseDown(e);
+			}, false);
 		};
 		
 		window.onload = init;
     </script>
+	
+	<style>
+		#game {
+			display: none;
+		}
+		canvas {
+			display: block;
+		}
+	</style>
 </head>
 <body>
-	<p>WASD to move, F to change color.</p>
-	<canvas id="mainCanvas" width="1280" height="720" style="border:1px solid #000000;"></canvas>
+	<div id="login">
+		<label for="user">Username:</label>
+		<input id="username" name="user" type="text"/>
+		<input id="connect" type='button' value='connect'/>
+	</div>
+	<div id="game">
+		<p id="roomInfo"></p>
+		<canvas id="mainCanvas" width="640" height="640"></canvas>
+	</div>
 </body>
 </html>

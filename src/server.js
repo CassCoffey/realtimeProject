@@ -16,66 +16,131 @@ const app = http.createServer(onRequest).listen(port);
 
 const io = socketio(app);
 
-const maxCoins = 100;
-const coinsPer = 3;
-const coins = [];
+const rooms = [];
+let numRooms = 0;
 
-function Coin(x, y, radius) {
-  this.x = x;
-  this.y = y;
-  this.radius = radius;
-  this.visible = true;
-}
-
-const createCoins = () => {
-  for (let i = 0; i < coinsPer; i++) {
-    if (coins.length <= maxCoins) {
-      const x = Math.floor((Math.random() * (1280 - 10)) + 10);
-      const y = Math.floor((Math.random() * (720 - 10)) + 10);
-      const tempCoin = new Coin(x, y, 20);
-      coins.push(tempCoin);
+const chooseRoom = (play) => {
+  const player = play;
+  for (let i = 0; i < numRooms; i++) {
+    if (!rooms[i].full) {
+      player.room = rooms[i];
+      if (rooms[i].playerOne != null) {
+        rooms[i].playerTwo = player;
+        rooms[i].full = true;
+      } else {
+        rooms[i].playerOne = player;
+        if (rooms[i].playerTwo != null) {
+          rooms[i].full = true;
+        }
+      }
+      return;
     }
   }
-  io.sockets.in('room1').emit('updateCoins', { coins });
+
+  const room = {};
+  room.full = false;
+  room.playerOne = player;
+  room.playerTwo = null;
+  room.name = `room${numRooms}`;
+  room.board = [
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+  ];
+  room.turn = 'x';
+  rooms[numRooms] = room;
+  player.room = room;
+  numRooms++;
 };
 
-const checkCoins = (data) => {
-  let coinChanged = false;
-
-  for (let i = 0; i < coins.length; i++) {
-    if (coins[i].visible) {
-      const a = coins[i].x - (data.coords.x + (data.coords.width / 2));
-      const b = coins[i].y - (data.coords.y + (data.coords.height / 2));
-
-      const c = Math.sqrt((a * a) + (b * b));
-
-      if (c < coins[i].radius + (data.coords.width / 2)) {
-        coinChanged = true;
-        coins[i].visible = false;
-      }
-    }
+const processMove = (x, y, player) => {
+  const room = player.room;
+  let character = null;
+  if (room.playerOne === player) {
+    character = 'x';
+  }
+  if (room.playerTwo === player) {
+    character = 'o';
   }
 
-  if (coinChanged) {
-    io.sockets.in('room1').emit('updateCoins', { coins });
+  if (room.full && room.turn === character) {
+    room.board[x][y] = character;
+
+    if (character === 'x') {
+      room.turn = 'o';
+    } else {
+      room.turn = 'x';
+    }
   }
 };
 
 const onJoined = (sock) => {
   const socket = sock;
-  socket.on('join', () => {
-    socket.join('room1');
-    socket.emit('updateCoins', { coins });
+  socket.on('join', (data) => {
+    const player = {};
+    player.name = data.name;
+    socket.player = player;
+    chooseRoom(player);
+    const roomName = player.room.name;
+    socket.join(roomName);
+    console.log(`${player.name} joined ${player.room.name}`);
+
+    let playerOne = 'N/A';
+    let playerTwo = 'N/A';
+    if (player.room.playerOne != null) {
+      playerOne = player.room.playerOne.name;
+    }
+    if (player.room.playerTwo != null) {
+      playerTwo = player.room.playerTwo.name;
+    }
+    socket.emit('connected', null);
+    io.sockets.in(roomName).emit('updateRoomInfo', { name: roomName, playerOne, playerTwo });
   });
 
-  socket.on('draw', (data) => {
-    checkCoins(data);
-    io.sockets.in('room1').emit('draw', { name: data.name, coords: data.coords });
+  socket.on('makeMove', (data) => {
+    const player = socket.player;
+    const room = player.room;
+
+    processMove(data.x, data.y, player);
+
+    io.sockets.in(room.name).emit('updateBoard', { board: room.board });
+  });
+};
+
+const onDisconnect = (sock) => {
+  const socket = sock;
+
+  socket.on('disconnect', () => {
+    const player = socket.player;
+    const room = player.room;
+    if (room.playerOne === player) {
+      room.playerOne = null;
+    } else {
+      room.playerTwo = null;
+    }
+    room.full = false;
+    room.turn = 'x';
+    room.board = [
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
+    ];
+
+    let playerOne = 'N/A';
+    let playerTwo = 'N/A';
+    if (player.room.playerOne != null) {
+      playerOne = player.room.playerOne.name;
+    }
+    if (player.room.playerTwo != null) {
+      playerTwo = player.room.playerTwo.name;
+    }
+    console.log(`${player.name} left ${player.room.name}`);
+    io.sockets.in(room.name).emit('updateRoomInfo', { name: room.name, playerOne, playerTwo });
+    io.sockets.in(room.name).emit('updateBoard', { board: room.board });
   });
 };
 
 io.sockets.on('connection', (socket) => {
   onJoined(socket);
+  onDisconnect(socket);
 });
-
-setInterval(createCoins, 2000);
