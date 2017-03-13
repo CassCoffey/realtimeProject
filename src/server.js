@@ -63,7 +63,7 @@ const processMove = (x, y, player) => {
     character = 'o';
   }
 
-  if (room.full && room.turn === character) {
+  if (room.full && room.turn === character && room.board[x][y] === null) {
     room.board[x][y] = character;
 
     if (character === 'x') {
