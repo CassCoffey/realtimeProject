@@ -53,6 +53,73 @@ const chooseRoom = (play) => {
   numRooms++;
 };
 
+const updateRoom = (play) => {
+  const player = play;
+
+  let playerOne = 'N/A';
+  let playerTwo = 'N/A';
+  let oneScore = 0;
+  let twoScore = 0;
+  if (player.room.playerOne != null) {
+    playerOne = player.room.playerOne.name;
+    oneScore = player.room.playerOne.score;
+  }
+  if (player.room.playerTwo != null) {
+    playerTwo = player.room.playerTwo.name;
+    twoScore = player.room.playerTwo.score;
+  }
+
+  const roomName = player.room.name;
+  io.sockets.in(roomName).emit('updateRoomInfo', { playerOne, playerTwo, oneScore, twoScore });
+};
+
+const checkWin = (play) => {
+  const player = play;
+  const room = player.room;
+  const board = room.board;
+  // All the win states
+  if ((board[0][0] === board[1][0] && board[1][0] === board[2][0] && board[1][0] !== null) ||
+    (board[0][1] === board[1][1] && board[1][1] === board[2][1] && board[1][1] !== null) ||
+    (board[0][2] === board[1][2] && board[1][2] === board[2][2] && board[1][2] !== null) ||
+    (board[0][0] === board[0][1] && board[0][1] === board[0][2] && board[0][1] !== null) ||
+    (board[1][0] === board[1][1] && board[1][1] === board[1][2] && board[1][1] !== null) ||
+    (board[2][0] === board[2][1] && board[2][1] === board[2][2] && board[2][1] !== null) ||
+    (board[0][0] === board[1][1] && board[1][1] === board[2][2] && board[1][1] !== null) ||
+    (board[2][0] === board[1][1] && board[1][1] === board[0][2] && board[1][1] !== null)) {
+    player.score += 1;
+    room.turn = 'x';
+    room.board = [
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+    ];
+
+    updateRoom(player);
+  }
+
+  // Check for draw too
+  let drawCheck = true;
+  for (let x = 0; x < 3; x++) {
+    for (let y = 0; y < 3; y++) {
+      if (board[x][y] === null) {
+        drawCheck = false;
+      }
+    }
+  }
+
+  // All spaces are filled and no win, it's a draw.
+  if (drawCheck) {
+    room.turn = 'x';
+    room.board = [
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+    ];
+
+    updateRoom(player);
+  }
+};
+
 const processMove = (x, y, player) => {
   const room = player.room;
   let character = null;
@@ -65,6 +132,8 @@ const processMove = (x, y, player) => {
 
   if (room.full && room.turn === character && room.board[x][y] === null) {
     room.board[x][y] = character;
+
+    checkWin(player);
 
     if (character === 'x') {
       room.turn = 'o';
@@ -79,22 +148,13 @@ const onJoined = (sock) => {
   socket.on('join', (data) => {
     const player = {};
     player.name = data.name;
+    player.score = 0;
     socket.player = player;
     chooseRoom(player);
     const roomName = player.room.name;
     socket.join(roomName);
-    console.log(`${player.name} joined ${player.room.name}`);
-
-    let playerOne = 'N/A';
-    let playerTwo = 'N/A';
-    if (player.room.playerOne != null) {
-      playerOne = player.room.playerOne.name;
-    }
-    if (player.room.playerTwo != null) {
-      playerTwo = player.room.playerTwo.name;
-    }
     socket.emit('connected', null);
-    io.sockets.in(roomName).emit('updateRoomInfo', { name: roomName, playerOne, playerTwo });
+    updateRoom(player);
   });
 
   socket.on('makeMove', (data) => {
@@ -126,16 +186,7 @@ const onDisconnect = (sock) => {
       [null, null, null],
     ];
 
-    let playerOne = 'N/A';
-    let playerTwo = 'N/A';
-    if (player.room.playerOne != null) {
-      playerOne = player.room.playerOne.name;
-    }
-    if (player.room.playerTwo != null) {
-      playerTwo = player.room.playerTwo.name;
-    }
-    console.log(`${player.name} left ${player.room.name}`);
-    io.sockets.in(room.name).emit('updateRoomInfo', { name: room.name, playerOne, playerTwo });
+    updateRoom(player);
     io.sockets.in(room.name).emit('updateBoard', { board: room.board });
   });
 };

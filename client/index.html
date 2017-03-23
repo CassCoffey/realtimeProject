@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+	<link href="https://fonts.googleapis.com/css?family=Baloo+Bhaina" rel="stylesheet">
     <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
 	<script src="/socket.io/socket.io.js"></script>
     <script type="text/babel" >
@@ -38,7 +39,7 @@
 			});
 			
 			socket.on('updateRoomInfo', (data) => {
-				document.querySelector("#roomInfo").innerHTML = `Room: ${data.name}, Player One: ${data.playerOne}, Player Two: ${data.playerTwo}`;
+				document.querySelector("#roomInfo").innerHTML = `${data.playerOne}: ${data.oneScore}, ${data.playerTwo}: ${data.twoScore}`;
 			});
 			
 			socket.on('updateBoard', (data) => {
@@ -48,9 +49,14 @@
 		};
 		
 		const draw = () => {
+			ctx.lineCap = "round";
+			ctx.lineWidth = 10;
+		
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 			
 			drawBoard();
+			
+			ctx.lineWidth = 20;
 			
 			for (var x = 0; x < 3; x++) {
 				for (var y = 0; y < 3; y++) {
@@ -65,6 +71,8 @@
 		}
 		
 		const drawBoard = () => {
+			ctx.strokeStyle="#7785ac";
+		
 			var width = canvas.width;
 			var height = canvas.height;
 			var sectionWidth = width / 3;
@@ -75,18 +83,22 @@
 				let curX = i * sectionWidth;
 				let curY = i * sectionHeight;
 				ctx.beginPath();
-				ctx.moveTo(curX,0);
-				ctx.lineTo(curX,height);
+				ctx.moveTo(curX,10);
+				ctx.lineTo(curX,height - 10);
 				ctx.stroke();
 				
 				ctx.beginPath();
-				ctx.moveTo(0, curY);
-				ctx.lineTo(width, curY);
+				ctx.moveTo(10, curY);
+				ctx.lineTo(width - 10, curY);
 				ctx.stroke();
 			}
 		}
 		
 		const drawX = (x, y) => {
+			ctx.strokeStyle="#f98b96";
+			
+			let strokeMargin = 20;
+			
 			var width = canvas.width;
 			var height = canvas.height;
 			var sectionWidth = width / 3;
@@ -95,17 +107,21 @@
 			var boardY = y * sectionHeight;
 			
 			ctx.beginPath();
-			ctx.moveTo(boardX,boardY);
-			ctx.lineTo(boardX + sectionWidth,boardY + sectionHeight);
+			ctx.moveTo(boardX + strokeMargin,boardY + strokeMargin);
+			ctx.lineTo((boardX + sectionWidth) - strokeMargin,(boardY + sectionHeight) - strokeMargin);
 			ctx.stroke();
 			
 			ctx.beginPath();
-			ctx.moveTo(boardX,boardY + sectionHeight);
-			ctx.lineTo(boardX + sectionWidth,boardY);
+			ctx.moveTo(boardX + strokeMargin,(boardY + sectionHeight) - strokeMargin);
+			ctx.lineTo((boardX + sectionWidth) - strokeMargin,boardY + strokeMargin);
 			ctx.stroke();
 		}
 		
 		const drawO = (x, y) => {
+			ctx.strokeStyle="#71a9f7";
+			
+			let strokeMargin = 20;
+			
 			var width = canvas.width;
 			var height = canvas.height;
 			var sectionWidth = width / 3;
@@ -114,7 +130,7 @@
 			var boardY = y * sectionHeight;
 			
 			ctx.beginPath();
-			ctx.arc(boardX + (sectionWidth/2),boardY + (sectionHeight/2),sectionWidth/2,0,2*Math.PI);
+			ctx.arc(boardX + (sectionWidth/2),boardY + (sectionHeight/2),(sectionWidth/2) - strokeMargin,0,2*Math.PI);
 			ctx.stroke();
 		}
 		
@@ -156,16 +172,70 @@
 		#game {
 			display: none;
 		}
+		
+		#login {
+			margin: auto;
+			padding: 8%;
+			width: 45%;
+			height: 30%;
+			background-color: #9ac6c5;
+			border-radius: 8px;
+			font-family: 'Baloo Bhaina', cursive;
+			color: #daffef;
+			font-size: 25pt;
+		}
+		
+		#login p {
+			text-align: center;
+		}
+		
+		#login div {
+			margin: auto;
+			width: 70%;
+		}
+		
+		#connect {
+			background-color: #7785ac;
+			color: #daffef;
+			font-family: 'Baloo Bhaina', cursive;
+			font-size: 20pt;
+			text-align: center;
+			text-decoration: none;
+			border-radius: 6px;
+			border: 0px #daffef;
+			cursor:pointer;
+		}
+		
+		#game {
+			font-family: 'Baloo Bhaina', cursive;
+			color: #99e1d9;
+			font-size: 25pt;
+		}
+		
+		#game p {
+			text-align: center;
+		}
+		
 		canvas {
 			display: block;
+			margin: auto;
+			background-color: #9ac6c5;
+			border-radius: 8px;
+		}
+		
+		body {
+			background-color: #daffef;
 		}
 	</style>
 </head>
 <body>
 	<div id="login">
-		<label for="user">Username:</label>
-		<input id="username" name="user" type="text"/>
-		<input id="connect" type='button' value='connect'/>
+		<p>Type in a username and hit connect to start Tic-Tac-Toeing!</p>
+		<div>
+			<label for="user">Username:</label>
+			<input id="username" name="user" type="text"/>
+			<input id="connect" type='button' value='connect'/>
+		</div>
 	</div>
 	<div id="game">
 		<p id="roomInfo"></p>
